@@ -5,10 +5,11 @@ import matplotlib.pyplot as plt
 # Physical constants
 capacitance = 1800  # farads
 esr = 0.00016  # ohms
-mc = 2 * (10 ** -7)  # magnetic constant
+mu0 = (4 * np.pi) * (10 ** -7)  # magnetic constant newtons per ampere squared
 copper_resistivity = 1.68 * (10 ** -8)  # ohms * meters
 copper_density = 8950  # kg per cubic meter
 
+# Parameters
 D = 0.00635  # separation of the rails and width of the bar (meters)
 w = 0.00635  # width of the rails (meters)
 h = 0.00635  # height of rail
@@ -33,22 +34,16 @@ def total_resistance(position):
 def dydt(y, t):
     position, velocity, voltage, current = y
 
-    # current_derivative = -(voltage * capacitance) / (resistance * capacitance) * (
-    #         e ** (-t / (resistance * capacitance)))
-    # voltage_derivative = - (1 / (resistance * capacitance)) * initial_voltage * (
-    #         e ** (-t / (resistance * capacitance)))  # time derivative of voltage
-
     resistance = total_resistance(position)
-    voltage_derivative = current / capacitance
+    voltage_derivative = -current / capacitance
     current_derivative = voltage_derivative / resistance
-    force_rails = (2 * mc * (current ** 2) * (
-            np.log(D + w / 2) - np.log(w / 2)))  # forwards force on projectile from rails
-    force_inductance = -2 * mc * current * (
-            np.log(D + w / 2) - np.log(w / 2)) * velocity  # backwards force on projectile from inductance
+    force_rails = ((mu0 * position * (current ** 2)) / np.pi) * (
+                (w ** 2) + (position ** 2) - (position * np.sqrt((w ** 2) + (position ** 2)))) / (
+                      np.sqrt(w ** 2 + (position ** 2)))
     # force_friction = -velocity * area * coefficient_of_dynamic_friction
 
     if position < L:
-        acceleration = (force_rails + force_inductance) / mass
+        acceleration = force_rails / mass
     else:
         acceleration = 0
 
@@ -56,14 +51,16 @@ def dydt(y, t):
     return y
 
 
-time = np.linspace(0, 0.01, 101)
+time = np.linspace(0, 1, 101)
 
 initial_current = (initial_voltage / total_resistance(0))
 y0 = [0.0, initial_velocity, initial_voltage, initial_current]
 y1 = odeint(dydt, y0, time)
 
-plt.plot(time, y1[:, 0], 'b', label='position')
+# plt.plot(time, y1[:, 0], 'b', label='position')
 plt.plot(time, y1[:, 1], 'g', label='velocity')
+# plt.plot(time, y1[:, 2], 'g', label='voltage')
+# plt.plot(time, y1[:, 3], 'g', label='current')
 plt.legend(loc='best')
 plt.xlabel('t')
 plt.show()
