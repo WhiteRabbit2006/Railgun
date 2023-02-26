@@ -2,28 +2,50 @@ import numpy as np
 from scipy.integrate import odeint
 import matplotlib.pyplot as plt
 
-mass = 0.1  # kilogram
-resistance = 0.001  # ohm
-initial_voltage = 3.0  # volts
-capacitance = 1800  # farad
-D = 0.02  # separation of the rails and width of the bar (meters)
-w = 0.00635  # width of the rails (meters)
-L = 1  # length of the rails (meters)
+# Physical constants
+capacitance = 1800  # farads
+esr = 0.00016  # ohms
 mc = 2 * (10 ** -7)  # magnetic constant
+copper_resistivity = 1.68 * (10 ** -8)  # ohms * meters
+copper_density = 8950  # kg per cubic meter
+
+D = 0.00635  # separation of the rails and width of the bar (meters)
+w = 0.00635  # width of the rails (meters)
+h = 0.00635  # height of rail
+lp = 0.00635  # length of projectile
+L = 1  # length of the rails (meters)
+mass = lp * w * h * copper_density  # kilogram
+
+initial_voltage = 3.0  # volts
+initial_velocity = 1  # meters per second
+
+projectile_resistance = copper_resistivity * D / (D * w)
+connection_resistance = 0
 e = np.e  # eulers number
+
+
+def total_resistance(position):
+    r_rail = copper_resistivity * (position / (w * h))
+    resistance = (2 * r_rail) + esr + projectile_resistance + connection_resistance
+    return resistance
 
 
 def dydt(y, t):
     position, velocity, voltage, current = y
 
-    current_derivative = -(voltage * capacitance) / (resistance * capacitance) * (
-            e ** (-t / (resistance * capacitance)))
-    voltage_derivative = - (1 / (resistance * capacitance)) * initial_voltage * (
-            e ** (-t / (resistance * capacitance)))  # time derivative of voltage
+    # current_derivative = -(voltage * capacitance) / (resistance * capacitance) * (
+    #         e ** (-t / (resistance * capacitance)))
+    # voltage_derivative = - (1 / (resistance * capacitance)) * initial_voltage * (
+    #         e ** (-t / (resistance * capacitance)))  # time derivative of voltage
+
+    resistance = total_resistance(position)
+    voltage_derivative = current / capacitance
+    current_derivative = voltage_derivative / resistance
     force_rails = (2 * mc * (current ** 2) * (
             np.log(D + w / 2) - np.log(w / 2)))  # forwards force on projectile from rails
     force_inductance = -2 * mc * current * (
             np.log(D + w / 2) - np.log(w / 2)) * velocity  # backwards force on projectile from inductance
+    # force_friction = -velocity * area * coefficient_of_dynamic_friction
 
     if position < L:
         acceleration = (force_rails + force_inductance) / mass
@@ -34,9 +56,10 @@ def dydt(y, t):
     return y
 
 
-time = np.linspace(0, 0.1, 101)
+time = np.linspace(0, 0.01, 101)
 
-y0 = [0.0, 0.0, initial_voltage, e * (initial_voltage / resistance)]
+initial_current = (initial_voltage / total_resistance(0))
+y0 = [0.0, initial_velocity, initial_voltage, initial_current]
 y1 = odeint(dydt, y0, time)
 
 plt.plot(time, y1[:, 0], 'b', label='position')
