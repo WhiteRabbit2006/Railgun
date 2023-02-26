@@ -3,47 +3,44 @@ from scipy.integrate import odeint
 import matplotlib.pyplot as plt
 
 mass = 0.1  # kilogram
-resistance = 0.003 + 0.0016 + 0.001  # ohm
+resistance = 0.001  # ohm
 initial_voltage = 3.0  # volts
-initial_current = 8154  # amps
 capacitance = 1800  # farad
 D = 0.02  # separation of the rails and width of the bar (meters)
 w = 0.00635  # width of the rails (meters)
 L = 1  # length of the rails (meters)
-e = 2.7182818284590452353602874713527  # eulers number
 mc = 2 * (10 ** -7)  # magnetic constant
+e = np.e  # eulers number
 
 
 def dydt(y, t):
-
     position, velocity, voltage, current = y
 
-    current_derivative = -current * (e ** (-t / (resistance * capacitance)))
+    current_derivative = -(voltage * capacitance) / (resistance * capacitance) * (
+            e ** (-t / (resistance * capacitance)))
     voltage_derivative = - (1 / (resistance * capacitance)) * initial_voltage * (
-                e ** (-t / (resistance * capacitance)))  # time derivative of voltage
+            e ** (-t / (resistance * capacitance)))  # time derivative of voltage
     force_rails = (2 * mc * (current ** 2) * (
-                np.log(D + w / 2) - np.log(w / 2)))  # forwards force on projectile from rails
+            np.log(D + w / 2) - np.log(w / 2)))  # forwards force on projectile from rails
     force_inductance = -2 * mc * current * (
-                np.log(D + w / 2) - np.log(w / 2)) * velocity  # backwards force on projectile from inductance
+            np.log(D + w / 2) - np.log(w / 2)) * velocity  # backwards force on projectile from inductance
 
     if position < L:
         acceleration = (force_rails + force_inductance) / mass
     else:
         acceleration = 0
 
-    y = [velocity,  acceleration, voltage_derivative, current_derivative]
+    y = [velocity, acceleration, voltage_derivative, current_derivative]
     return y
 
 
 time = np.linspace(0, 0.1, 101)
 
-y0 = [0.0, 0.0, initial_voltage, initial_current]
+y0 = [0.0, 0.0, initial_voltage, e * (initial_voltage / resistance)]
 y1 = odeint(dydt, y0, time)
 
 plt.plot(time, y1[:, 0], 'b', label='position')
 plt.plot(time, y1[:, 1], 'g', label='velocity')
-# plt.plot(t, y[:, 2], 'r', label='voltage')
-# plt.plot(t, y[:, 3], 'k', label='current')
 plt.legend(loc='best')
 plt.xlabel('t')
 plt.show()
