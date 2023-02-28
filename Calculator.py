@@ -4,7 +4,7 @@ from scipy.integrate import odeint, quadrature
 import matplotlib.pyplot as plt
 
 # Physical constants
-capacitance = 0.0001  # [=] farads
+capacitance = 1  # [=] farads
 esr = 0.00016  # [=] ohms
 mu0 = (4 * np.pi) * (10 ** -7)  # magnetic constant [=] newtons per ampere squared
 muR = 0.999994  # relative permeability of copper, very close to permeability of free space (mu0) [=] mu / mu0
@@ -36,6 +36,7 @@ connection_resistance = 0
 e = np.e  # eulers number
 
 weight = mass * 9.81
+
 friction_force = friction_coefficient * weight * np.cos(np.radians(angle))  # [=] newtons
 
 static_resisitance = esr + projectile_resistance + connection_resistance  # [=] ohms
@@ -48,16 +49,6 @@ def capacitor_voltage(charge):  # [=] volts
     return v
 
 
-# def resistance_rails(position):  # [=] ohms
-#     R = resistance_gradient * position
-#     return R
-#
-#
-# def inductance_rails(position):  # [=] volts / dI/dt
-#     L = inductance_gradient * position
-#     return L
-
-
 def EMF(velocity):  # returns resistance due to EMF [=] ohms
     return inductance_gradient * velocity
 
@@ -66,32 +57,28 @@ def dydt(y, t):
     position, velocity, current, current_rate = y
 
     if position < L:
-        # acceleration = (1 / 2 * inductance_gradient * current ** 2 - friction_force) / mass
-        acceleration = 0
-
+        acceleration = (1 / 2 * inductance_gradient * current ** 2 - friction_force) / mass
     else:
         acceleration = 0
 
-    # current_rate_rate = (-1 * current_rate * (
-    #         static_resisitance + resistance_gradient * position + 2 * inductance_gradient * velocity) + current * (
-    #                              1 / capacitance + resistance_gradient * velocity + inductance_gradient * acceleration)) / (
-    #                             inductance_leads + inductance_gradient * position)
-
-    current_rate_rate = 1
+    current_rate_rate = -1 * (-1 / capacitance * current + static_resisitance * current_rate + resistance_gradient * (
+                current * velocity + position * current_rate) + inductance_gradient * current_rate * velocity + inductance_gradient * (
+                                          current * acceleration + velocity * current_rate)) / (
+                                    inductance_leads + inductance_gradient * position)
 
     return velocity, acceleration, current_rate, current_rate_rate
 
 
-time = np.linspace(0, 1, 101)
+time = np.linspace(0, 0.01, 101)
 
 initial_current_rate = initial_voltage / inductance_leads
-y0 = [0.0, 0.0, 100, 0.0]
+y0 = [0.0, initial_velocity, 0, initial_current_rate]
 y1 = odeint(dydt, y0, time)
 
 # plt.plot(time, y1[:, 0], 'b', label='position')
-# plt.plot(time, y1[:, 1], 'g', label='velocity')
+plt.plot(time, y1[:, 1], 'g', label='velocity')
 # plt.plot(time, y1[:, 2], 'g', label='voltage')
-plt.plot(time, y1[:, 3], 'g', label='current')
+# plt.plot(time, y1[:, 3], 'g', label='current')
 plt.legend(loc='best')
 plt.xlabel('t')
 plt.show()
