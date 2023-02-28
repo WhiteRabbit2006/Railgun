@@ -4,7 +4,7 @@ from scipy.integrate import odeint, quadrature
 import matplotlib.pyplot as plt
 
 # Physical constants
-capacitance = 1800  # [=] farads
+capacitance = 0.0001  # [=] farads
 esr = 0.00016  # [=] ohms
 mu0 = (4 * np.pi) * (10 ** -7)  # magnetic constant [=] newtons per ampere squared
 muR = 0.999994  # relative permeability of copper, very close to permeability of free space (mu0) [=] mu / mu0
@@ -26,99 +26,72 @@ angle = 0  # angle of launch (from ground) [=] degrees
 
 # mass = lp * w * h * copper_density  # kilogram
 
-initial_voltage = 3.0  # volts
+initial_voltage = 20  # volts
 initial_velocity = 1  # meters per second
+inductance_gradient = ((4 * mu0 * muR * (lp + w)) / h)  # inductance constant (multiplies with position for inductance)
+resistance_gradient = 2 * copper_resistivity / (w * h)  # resistance of rails (multiplies with position for resistance)
 
 projectile_resistance = copper_resistivity * D / (hp * lp)
 connection_resistance = 0
 e = np.e  # eulers number
 
+weight = mass * 9.81
+friction_force = friction_coefficient * weight * np.cos(np.radians(angle))  # [=] newtons
 
-def friction_force():
-    return friction_coefficient * mass * -9.81 * np.cosd(angle)
+static_resisitance = esr + projectile_resistance + connection_resistance  # [=] ohms
 
-def magnetic_force(current, position):  # given current and position returns force [=] newtons
-
-    def dFdp(pp):  # parameter is position along projectile width (D), returns force for pp [=] newtons / meters
-        part_1 = np.sqrt(position**2 + pp**2)
-        part_2 = np.sqrt(position**2 + (D-pp)**2)
-        result = 1/part_1 + 1/part_2
-        return result
-
-    constant = mu0 * current**2 * position / (4 * np.pi)
-    result = scipy.integrate.quadrature(dFdp, 0, D)
-    return result * constant
-
-def current_derivative(current):
+inductance_leads = (mu0 * muR * lc * (lp + w)) / h  # [=] volts / dI/dt
 
 
-def total_resistance(position):
-    cross_section_area = w * h
-    r_rail = copper_resistivity * position / cross_section_area  # position = length of rail
-    resistance = (2 * r_rail) + esr + projectile_resistance + connection_resistance
-    return resistance
+def capacitor_voltage(charge):  # [=] volts
+    v = charge / capacitance
+    return v
 
 
-def total_inductance_mtu(position):
-    inductance_rails = ((4 * mu0 * muR * (lp + w)) / h) * position
-    inductance_leads = (mu0 * muR * lc * (lp + w)) / h
-    return inductance_rails + inductance_leads
+# def resistance_rails(position):  # [=] ohms
+#     R = resistance_gradient * position
+#     return R
+#
+#
+# def inductance_rails(position):  # [=] volts / dI/dt
+#     L = inductance_gradient * position
+#     return L
 
 
-def total_inductance_plos(position):
-    big_equation = 1  #TODO: write out equation
-    return big_equation
-
-
-# Total inductance L(position) = L'(2 * position)
-# L' = (2 * mu0 * muR * 2 * (lp + w)) / h
-# L(position) = ((4 * mu0 * muR * 2 * (lp + w)) / h) * position
-
-# Inductance leads = (mu0 * muR * lc * (lp + w)) / h
-
-# Current derivative = (1 / (
-
-
-def dFdp(p):
-    return (1 / (((L **2) + (p ** 2)) ** (1/2))) + (1 / (((L ** 2) + (D - p) ** 2) ** (1/2)))
-
+def EMF(velocity):  # returns resistance due to EMF [=] ohms
+    return inductance_gradient * velocity
 
 
 def dydt(y, t):
-    position, velocity, voltage_capacitor, current = y
-
-    resistance = total_resistance(position)
-    voltage_capacitor_derivative = -current / capacitance
-    current_derivative = voltage_capacitor_derivative / resistance
-    force_friction = (friction_coefficient * mass * -9.81 * np.cos(angle))
-
-
-
-    # force_rails = 0.5 * ((2 * mu0 * muR * 2 * (lp + w)) / h) * (current ** 2)
-
-    # force_rails = ((mu0 * position * (current ** 2)) / np.pi) * (
-    #             (w ** 2) + (position ** 2) - (position * np.sqrt((w ** 2) + (position ** 2)))) / (
-    #                   np.sqrt(w ** 2 + (position ** 2)))
+    position, velocity, current, current_rate = y
 
     if position < L:
-        acceleration = force_rails + force_friction / mass
+        # acceleration = (1 / 2 * inductance_gradient * current ** 2 - friction_force) / mass
+        acceleration = 0
+
     else:
         acceleration = 0
 
-    y = [velocity, acceleration, voltage_capacitor_derivative, current_derivative]
-    return y
+    # current_rate_rate = (-1 * current_rate * (
+    #         static_resisitance + resistance_gradient * position + 2 * inductance_gradient * velocity) + current * (
+    #                              1 / capacitance + resistance_gradient * velocity + inductance_gradient * acceleration)) / (
+    #                             inductance_leads + inductance_gradient * position)
+
+    current_rate_rate = 1
+
+    return velocity, acceleration, current_rate, current_rate_rate
 
 
-time = np.linspace(0, 0.2, 101)
+time = np.linspace(0, 1, 101)
 
-initial_current = (initial_voltage / total_resistance(0))
-y0 = [0.0, initial_velocity, initial_voltage, initial_current]
+initial_current_rate = initial_voltage / inductance_leads
+y0 = [0.0, 0.0, 100, 0.0]
 y1 = odeint(dydt, y0, time)
 
 # plt.plot(time, y1[:, 0], 'b', label='position')
-plt.plot(time, y1[:, 1], 'g', label='velocity')
+# plt.plot(time, y1[:, 1], 'g', label='velocity')
 # plt.plot(time, y1[:, 2], 'g', label='voltage')
-# plt.plot(time, y1[:, 3], 'g', label='current')
+plt.plot(time, y1[:, 3], 'g', label='current')
 plt.legend(loc='best')
 plt.xlabel('t')
 plt.show()
