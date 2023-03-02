@@ -35,14 +35,14 @@ friction_coefficient = 0.2  # friction coefficient of copper [=]
 # mass = lp * d * hp * copper_density  # [=] grams
 mass = 0.69  # 0.25 in. aluminum cube [=] grams
 # inductance_gradient = ((4 * mu0 * muR * (d + w)) / h)  # inductance constant (multiplies with position for inductance)
-inductance_gradient = 3 * (10**-7)  # measured value [=] henris
+inductance_gradient = 3 * (10**-7)  # measured value [=] henris / meters
 resistance_gradient = 2 * copper_resistivity / (w * h)  # resistance coefficient of rails [=] ohms / position
 projectile_resistance = 1.63934426 * copper_resistivity * d / (hp * lp)  # coefficient for aluminum projectile [=] ohms
 weight = mass * 9.81
 friction_force = friction_coefficient * weight * np.cos(np.radians(angle))  # [=] newtons
 static_resistance = esr + projectile_resistance + connection_resistance  # [=] ohms
 # inductance_leads = (mu0 * muR * lc * (d + w)) / h  # [=] volts / dI/dt
-inductance_leads = 4.46 * (10**-7)  # measured value
+inductance_leads = 4.46 * (10**-7)  # measured value [=] henris
 
 
 def dydt(y, t):
