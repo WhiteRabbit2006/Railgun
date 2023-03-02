@@ -18,7 +18,7 @@ lp = 0.00635  # length of projectile [=] meters
 hp = 0.00635  # height of projectile [=] meters
 
 lc = 0.3048  # length of conductor (both leads added) [=] meters
-connection_resistance = 0.000  # [=] ohms
+dc = 0.018288  # diameter or connector wire [=] meters
 
 angle = 0  # angle of launch (from ground) [=] degrees
 initial_velocity = 1  # meters per second
@@ -28,14 +28,16 @@ initial_velocity = 1  # meters per second
 mu0 = (4 * np.pi) * (10 ** -7)  # magnetic constant [=] newtons per ampere squared
 muR = 0.999994  # relative permeability of copper, very close to permeability of free space (mu0) [=] mu / mu0
 copper_resistivity = 1.68 * (10 ** -8)  # [=] ohms * meters
+cross_c = np.pi * (dc/2)**2  # [=] meters squared
+connection_resistance = copper_resistivity * lc / cross_c  # [=] ohms
 copper_density = 8950 * 1000  # [=] g per cubic meter
 friction_coefficient = 0.2  # friction coefficient of copper [=]
 # mass = lp * d * hp * copper_density  # [=] grams
-mass = 0.4  # for testing [=] grams
+mass = 0.69  # 0.25 in. aluminum cube [=] grams
 # inductance_gradient = ((4 * mu0 * muR * (d + w)) / h)  # inductance constant (multiplies with position for inductance)
-inductance_gradient = 3 * (10**-7)  # measured value
-resistance_gradient = 2 * copper_resistivity / (w * h)  # resistance of rails (multiplies with position for resistance)
-projectile_resistance = copper_resistivity * d / (hp * lp)
+inductance_gradient = 3 * (10**-7)  # measured value [=] henris
+resistance_gradient = 2 * copper_resistivity / (w * h)  # resistance coefficient of rails [=] ohms / position
+projectile_resistance = 1.63934426 * copper_resistivity * d / (hp * lp)  # coefficient for aluminum projectile [=] ohms
 weight = mass * 9.81
 friction_force = friction_coefficient * weight * np.cos(np.radians(angle))  # [=] newtons
 static_resistance = esr + projectile_resistance + connection_resistance  # [=] ohms
@@ -68,8 +70,8 @@ initial_current_rate = initial_voltage / inductance_leads
 y0 = [0.0, initial_velocity, 0, initial_current_rate, initial_voltage]
 y1 = odeint(dydt, y0, time)
 
-final_velocity = max(y1[:, 1])
-projectile_energy = 1/2 * mass * final_velocity**2
+final_velocity = (y1[:, 1][-1])
+projectile_energy = 1/2 * mass * (final_velocity - initial_velocity)**2
 capacitor_energy = 1/2 * capacitance * initial_voltage**2
 energy_efficiency = projectile_energy / capacitor_energy
 print("mass =", mass)
