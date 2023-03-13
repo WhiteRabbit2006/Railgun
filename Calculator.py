@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 
 # Capacitor
 capacitance = 3400  # [=] farads
-esr = 0.00013  # [=] ohms
+esr = 0.00015  # [=] ohms
 initial_voltage = 2.85  # [=] volts
 
 # Railgun, projectile, leads, construction
@@ -15,8 +15,7 @@ d = 0.00635  # separation of the rails and width of the bar [=] meters
 
 lp = 0.00635  # length of projectile [=] meters
 hp = 0.00635  # height of projectile [=] meters
-material = -1  # 0 for copper, -1 for aluminum, else specify 'mass" and 'projectile_resistance' values below
-mass = 0  # mass of projectile, enter 0 to use 'material' [=] grams
+material = -1  # 0 for copper, -1 for aluminum, else specify 'mass' and 'projectile_resistance' values below
 
 lc = 0.3048 / 3  # length of conductor (both leads added) [=] meters
 dc = 0.018288  # diameter or connector wire [=] meters
@@ -26,30 +25,28 @@ initial_velocity = 1  # meters per second
 
 # Physical constants (should not need to change)
 mu0 = (4 * np.pi) * (10 ** -7)  # magnetic constant [=] newtons per ampere squared
-muR = 0.999994  # relative permeability of copper, very close to permeability of free space (mu0) [=] mu / mu0
 copper_resistivity = 1.68 * (10 ** -8)  # [=] ohms * meters
 aluminum_resistivity = 2.65 * (10 ** -8)  # [=] ohms * meters
 cross_c = np.pi * (dc / 2) ** 2  # [=] meters squared
 connection_resistance = copper_resistivity * lc / cross_c  # [=] ohms
-aluminum_resistance = aluminum_resistivity * lc / cross_c  # [=] ohms
 copper_density = 8950 * 1000  # [=] g per cubic meter
 aluminum_density = 2710 * 1000  # [=] g per cubic meter
 friction_coefficient = 0.2  # friction coefficient of copper [=]
-if mass == 0 and material == 0: mass = lp * d * hp * copper_density  # [=] grams
-elif mass == 0 and material == -1: mass = lp * d * hp * aluminum_density  # [=] grams
-else: mass = "specify here"  # for other material [=] grams
-# inductance_gradient = ((4 * mu0 * muR * (d + w)) / h)  # inductance constant (multiplies with position for inductance)
-inductance_gradient = 3 * (10 ** -7)  # measured value [=] henris / meters
-resistance_gradient = 2 * aluminum_resistivity / (w * h)  # resistance coefficient of rails [=] ohms / position
-if material == 0: projectile_resistance = copper_resistivity * d / (hp * lp)  # resistance of copper projectile [=] ohms
+if material == 0:
+    mass = lp * d * hp * copper_density  # [=] grams
+    projectile_resistance = copper_resistivity * d / (hp * lp)  # resistance of copper projectile [=] ohms
 elif material == -1:
+    mass = lp * d * hp * aluminum_density  # [=] grams
     projectile_resistance = aluminum_resistivity * d / (hp * lp)  # resistance aluminum projectile [=] ohms
-else: projectile_resistance = "specify"  # for other material [=] ohms
-weight = mass * 9.81
-friction_force = friction_coefficient * weight * np.cos(np.radians(angle))  # [=] newtons
-static_resistance = esr + projectile_resistance + connection_resistance  # [=] ohms
-# inductance_leads = (mu0 * muR * lc * (d + w)) / h  # [=] volts / dI/dt
+else:
+    mass = "specify here"  # for other material [=] grams
+    projectile_resistance = "specify"  # for other material [=] ohms
+inductance_gradient = 3 * (10 ** -7)  # measured value [=] henris / meters
 inductance_leads = 4.46 * (10 ** -7)  # measured value [=] henris
+static_resistance = esr + projectile_resistance + connection_resistance  # [=] ohms
+resistance_gradient = 2 * aluminum_resistivity / (w * h)  # resistance coefficient of rails [=] ohms / position
+weight = mass * 9.81  # [=] newtons
+friction_force = friction_coefficient * weight * np.cos(np.radians(angle))  # [=] newtons
 capacitor_energy = 1 / 2 * capacitance * initial_voltage ** 2  # [=] joules
 initial_current_rate = initial_voltage / inductance_leads
 
