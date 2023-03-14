@@ -31,7 +31,7 @@ cross_c = np.pi * (dc / 2) ** 2  # [=] meters squared
 connection_resistance = copper_resistivity * lc / cross_c  # [=] ohms
 copper_density = 8950 * 1000  # [=] g per cubic meter
 aluminum_density = 2710 * 1000  # [=] g per cubic meter
-friction_coefficient = 0.2  # friction coefficient of copper [=]
+friction_coefficient = 0.2  # friction coefficient of copper [=] newtons / newtons (no units)
 if p_material == 0:
     mass = lp * d * hp * copper_density  # [=] grams
     projectile_resistance = copper_resistivity * d / (hp * lp)  # resistance of copper projectile [=] ohms
@@ -48,7 +48,7 @@ resistance_gradient = 2 * aluminum_resistivity / (w * h)  # resistance coefficie
 weight = mass * 9.81  # [=] newtons
 friction_force = friction_coefficient * weight * np.cos(np.radians(angle))  # [=] newtons
 capacitor_energy = 1 / 2 * capacitance * initial_voltage ** 2  # [=] joules
-initial_current_rate = initial_voltage / inductance_leads
+initial_current_rate = initial_voltage / inductance_leads  # derivative of current with respect to time
 
 
 def dydt(y, t):
@@ -82,10 +82,11 @@ y0 = [0.0, initial_velocity, 0, initial_current_rate, initial_voltage]
 y1 = odeint(dydt, y0, time)
 
 final_velocity = (y1[:, 1][-1])
-projectile_energy = 1 / 2 * mass * (final_velocity - initial_velocity) ** 2
-energy_efficiency = projectile_energy / capacitor_energy
+projectile_energy = 1/2 * mass * (final_velocity - initial_velocity) ** 2
+capacitor_energy_used = 1/2 * capacitance * (initial_voltage - y1[:, 4][-1]) ** 2  # charge lost by capacitor
+energy_efficiency = projectile_energy / capacitor_energy_used * 100  # percentage of energy transferred to projectile
 print('final_velocity =', round(final_velocity, 4), 'm/s')
-print('energy_efficiency =', round(energy_efficiency * 1000, 4), "%")
+print('energy_efficiency =', round(energy_efficiency, 4), "%")
 
 # plt.plot(time, y1[:, 0], 'b', label='position')
 plt.plot(time, y1[:, 1], 'r', label='velocity')
