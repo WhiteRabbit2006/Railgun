@@ -13,6 +13,9 @@ import matplotlib.pyplot as plt
 from enum import Enum
 from pprint import pprint
 
+# Before using program, download the Credentials file from the google project credentials page for your project, and
+# save it to the working directory with name 'credentials.json'
+
 # If modifying these scopes, delete the file token.json.
 SCOPES = ['https://www.googleapis.com/auth/spreadsheets']
 
@@ -75,6 +78,11 @@ def calculations(vals):  # vals = [cap, esr, vol, w, h, l, d, lp, hp, mat, lc, d
     capacitor_energy = 1 / 2 * capacitance * initial_voltage ** 2  # [=] joules
     initial_current_rate = initial_voltage / inductance_leads  # derivative of current with respect to time
 
+    def closest_value(input_list, input_value):
+        arr = np.asarray(input_list)
+        i = (np.abs(arr - input_value)).argmin()
+        return i
+
     def dydt(y, t):
         position, velocity, current, current_rate, voltage = y
 
@@ -100,19 +108,36 @@ def calculations(vals):  # vals = [cap, esr, vol, w, h, l, d, lp, hp, mat, lc, d
 
         return velocity, acceleration, current_rate, current_rate_rate, -current / capacitance
 
-    time = np.linspace(0, 0.3, 101)
+    length = 3
+    time = np.linspace(0, length, 999996)
     y0 = [0.0, initial_velocity, 0, initial_current_rate, initial_voltage]
     y1 = odeint(dydt, y0, time)
 
+    pos = closest_value(y1[:, 0], l) / len(y1[:, 0])  # used for graphing, to set correct x-axis window
+    interval = int(1.2 * 999996 * pos)
     final_velocity = (y1[:, 1][-1])
     projectile_energy = 1 / 2 * mass * (final_velocity - initial_velocity) ** 2
     capacitor_energy_used = 1 / 2 * capacitance * (initial_voltage - y1[:, 4][-1]) ** 2  # charge lost by capacitor
-    energy_efficiency = projectile_energy / capacitor_energy_used * 100  # percentage of energy transferred
+    energy_efficiency = projectile_energy / capacitor_energy_used * 100  # percentage of energy transferred to projectile
+    if final_velocity <= 0:
+        energy_efficiency = 0
 
-    velocity_data = [[i] for i in list(y1[:, 1])]
-    voltage_data = [[i] for i in list(y1[:, 4])]
+    # final_velocity = (y1[:, 1][-1])
+    # if final_velocity <= 0:
+    #     projectile_energy = 0
+    # else:
+    #     projectile_energy = 1 / 2 * mass * (final_velocity - initial_velocity) ** 2
+    # capacitor_energy_used = 1 / 2 * capacitance * (initial_voltage - y1[:, 4][-1]) ** 2  # charge lost by capacitor
+    # energy_efficiency = projectile_energy / capacitor_energy_used * 100  # percentage of energy transferred
+    # pos = list(y1[:, 1]).index(final_velocity)  # finds when projectile stops accelerating
+    # interval = pos + int(0.1 * pos)  # defines time interval of data, 10% greater than window of acceleration
+    # if interval >= (100000 - 3):  # prevents from exceeding google sheets maximum cell count
+    #     interval = 999999 - 3
 
-    return [velocity_data, voltage_data, energy_efficiency]
+    velocity_data = [[i] for i in list(y1[:, 1])]  # convert each item in list to list within list
+    voltage_data = [[i] for i in list(y1[:, 4])]  # convert each item in list to list within list
+
+    return [velocity_data, voltage_data, energy_efficiency, interval]
 
 
 def main():
@@ -151,17 +176,18 @@ def main():
         param = [i for [i] in values]
         calc = calculations(param)
 
+        print(sheet.values().clear(spreadsheetId=spreadsheet_id, range='F3:F999999').execute())
         print(sheet.values().update(
             spreadsheetId=spreadsheet_id,
             range='D18:D19',
             valueInputOption="USER_ENTERED",
-            body={"values": [[float(calc[0][-1][0])], [float(calc[2])]]}
+            body={"values": [[calc[0][calc[3]][0]], [calc[2]]]}
         ).execute())
         print(sheet.values().update(
             spreadsheetId=spreadsheet_id,
-            range='F3:F104',
+            range='F3:F' + str(calc[3] + 3),
             valueInputOption="USER_ENTERED",
-            body={"values": calc[0]}
+            body={"values": calc[0][0:(calc[3])]}
         ).execute())
 
     except HttpError as err:
@@ -170,3 +196,6 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+# TODO: implement double run of dydt() in order to determine proper time interval, so more datapoints can be obtained
+#  for relevant interval efficiently (run once to determine interval, run again with interval)
