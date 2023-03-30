@@ -31,7 +31,7 @@ cross_c = np.pi * (dc / 2) ** 2  # [=] meters squared
 connection_resistance = copper_resistivity * lc / cross_c  # [=] ohms
 copper_density = 8950 * 1000  # [=] g per cubic meter
 aluminum_density = 2710 * 1000  # [=] g per cubic meter
-friction_coefficient = 0.2  # friction coefficient of copper [=] newtons / newtons (no units)
+friction_coefficient = 1.4  # friction coefficient of copper [=] newtons / newtons (no units)
 if p_material == 0:
     mass = lp * d * hp * copper_density  # [=] grams
     projectile_resistance = copper_resistivity * d / (hp * lp)  # resistance of copper projectile [=] ohms
@@ -51,6 +51,12 @@ capacitor_energy = 1 / 2 * capacitance * initial_voltage ** 2  # [=] joules
 initial_current_rate = initial_voltage / inductance_leads  # derivative of current with respect to time
 
 
+def closest_value(input_list, input_value):
+    arr = np.asarray(input_list)
+    i = (np.abs(arr - input_value)).argmin()
+    return i
+
+
 def dydt(y, t):
     position, velocity, current, current_rate, voltage = y
 
@@ -66,9 +72,9 @@ def dydt(y, t):
     inductance1 = inductance_gradient * current_rate * velocity
     inductance2 = -1 / (inductance_leads + inductance_gradient * position)
 
-    current_rate_rate = inductance2 * (inductance1 + d_voltage + d_resistance + d_resistance_gradient + d_EMF)
-
-    if position > l:
+    if position < l:
+        current_rate_rate = inductance2 * (inductance1 + d_voltage + d_resistance + d_resistance_gradient + d_EMF)
+    else:
         acceleration = 0
         current_rate_rate = 0
         current_rate = 0
@@ -77,22 +83,27 @@ def dydt(y, t):
     return velocity, acceleration, current_rate, current_rate_rate, -current / capacitance
 
 
-time = np.linspace(0, 0.3, 101)
+length = 3
+time = np.linspace(0, length, 100000)
 y0 = [0.0, initial_velocity, 0, initial_current_rate, initial_voltage]
 y1 = odeint(dydt, y0, time)
 
+interval = length * (closest_value(y1[:, 0], l) / len(y1[:, 0]))  # used for graphing, to set correct x-axis window
 final_velocity = (y1[:, 1][-1])
-projectile_energy = 1/2 * mass * (final_velocity - initial_velocity) ** 2
-capacitor_energy_used = 1/2 * capacitance * (initial_voltage - y1[:, 4][-1]) ** 2  # charge lost by capacitor
+projectile_energy = 1 / 2 * mass * (final_velocity - initial_velocity) ** 2
+capacitor_energy_used = 1 / 2 * capacitance * (initial_voltage - y1[:, 4][-1]) ** 2  # charge lost by capacitor
 energy_efficiency = projectile_energy / capacitor_energy_used * 100  # percentage of energy transferred to projectile
+if final_velocity <= 0:
+    energy_efficiency = 0
 print('final_velocity =', round(final_velocity, 4), 'm/s')
 print('energy_efficiency =', round(energy_efficiency, 4), "%")
 
 # plt.plot(time, y1[:, 0], 'b', label='position')
 plt.plot(time, y1[:, 1], 'r', label='velocity')
 # plt.plot(time, y1[:, 2], 'g', label='current')
-# plt.plot(time, y1[:, 3], 'o' label='current_rate')
+# plt.plot(time, y1[:, 3], 'o', label='current_rate')
 plt.plot(time, y1[:, 4], 'k', label='voltage')
+plt.xlim(0, interval + 0.2 * interval)
 plt.legend(loc='best')
 plt.xlabel('t')
 plt.show()
