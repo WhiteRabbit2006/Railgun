@@ -53,7 +53,7 @@ def calculations(vals):  # vals = [cap, esr, vol, w, h, l, d, lp, hp, mat, lc, d
         p_material = -1
 
     lc = float(vals[10])  # length of conductor (both leads added) [=] meters
-    dc = float(vals[11]) / 1000  # diameter or connector wire [=] meters
+    dc = float(vals[11]) / 1000  # diameter of connector wire [=] meters
 
     angle = float(vals[12])  # angle of launch (from ground) [=] degrees
     initial_velocity = 0.44704 * float(vals[14])  # meters per second
