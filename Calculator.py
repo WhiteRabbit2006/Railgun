@@ -18,7 +18,7 @@ hp = 0.00635  # height of projectile [=] meters
 p_material = -1  # 0 for copper, -1 for aluminum, else specify 'mass' and 'projectile_resistance' values below
 
 lc = 0.3048 / 3  # length of conductor (both leads added) [=] meters
-dc = 0.018288  # diameter or connector wire [=] meters
+dc = 0.018288  # diameter of connector wire [=] meters
 
 angle = 0  # angle of launch (from ground) [=] degrees
 initial_velocity = 1  # meters per second
