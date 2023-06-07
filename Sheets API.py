@@ -8,6 +8,7 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 import numpy as np
+from math import log10, floor
 from scipy.integrate import odeint
 import matplotlib.pyplot as plt
 from enum import Enum
@@ -53,15 +54,15 @@ def calculations(vals):  # vals = [cap, esr, vol, w, h, l, d, lp, hp, mat, lc, d
         p_material = -1
 
     lc = float(vals[10])  # length of conductor (both leads added) [=] meters
-    dc = float(vals[11]) / 1000  # diameter or connector wire [=] meters
+    dc = float(vals[11]) / 1000  # diameter of connector wire [=] meters
 
     angle = float(vals[12])  # angle of launch (from ground) [=] degrees
-    initial_velocity = 0.44704 * float(vals[14])  # meters per second
+    initial_velocity = float(vals[13])  # meters per second
 
     # Physical constants (should not need to change)
     cross_c = np.pi * (dc / 2) ** 2  # cross-section of lead wire [=] meters squared
     connection_resistance = copper_resistivity * lc / cross_c  # [=] ohms
-    friction_coefficient = float(vals[13])  # friction coefficient of copper [=] newtons / newtons (no units)
+    friction_coefficient = float(vals[14])  # friction coefficient of copper [=] newtons / newtons (no units)
     if p_material == 0:
         mass = lp * d * hp * copper_density  # [=] grams
         projectile_resistance = copper_resistivity * d / (hp * lp)  # resistance of copper projectile [=] ohms
@@ -83,6 +84,12 @@ def calculations(vals):  # vals = [cap, esr, vol, w, h, l, d, lp, hp, mat, lc, d
         i = (np.abs(arr - input_value)).argmin()
         return i
 
+    def get_time_datapoints(interval):  # given a time gets 6 equally distant time steps, for graph
+        steps = [[0.0]]
+        for i in range(7):
+            steps.append([round(interval * (i+1) / 6, -int(floor(log10(abs(interval * (i+1) / 6)))) + 1)])
+        return steps
+
     def dydt(y, t):
         position, velocity, current, current_rate, voltage = y
 
@@ -98,9 +105,9 @@ def calculations(vals):  # vals = [cap, esr, vol, w, h, l, d, lp, hp, mat, lc, d
         inductance1 = inductance_gradient * current_rate * velocity
         inductance2 = -1 / (inductance_leads + inductance_gradient * position)
 
-        current_rate_rate = inductance2 * (inductance1 + d_voltage + d_resistance + d_resistance_gradient + d_EMF)
-
-        if position > l:
+        if position < l and velocity > 0:
+            current_rate_rate = inductance2 * (inductance1 + d_voltage + d_resistance + d_resistance_gradient + d_EMF)
+        else:
             acceleration = 0
             current_rate_rate = 0
             current_rate = 0
@@ -109,15 +116,17 @@ def calculations(vals):  # vals = [cap, esr, vol, w, h, l, d, lp, hp, mat, lc, d
         return velocity, acceleration, current_rate, current_rate_rate, -current / capacitance
 
     length = 3
-    time = np.linspace(0, length, 999996)
+    time = np.linspace(0, length, 100000)
     y0 = [0.0, initial_velocity, 0, initial_current_rate, initial_voltage]
     y1 = odeint(dydt, y0, time)
+    interval = 1.2 * length * (closest_value(y1[:, 0], l) / len(
+        y1[:, 0]))  # new time interval according to when projectile left barrel
+    time = np.linspace(0, interval, 1000)
+    y1 = odeint(dydt, y0, time)
 
-    pos = closest_value(y1[:, 0], l) / len(y1[:, 0])  # used for graphing, to set correct x-axis window
-    interval = int(1.2 * 999996 * pos)
     final_velocity = (y1[:, 1][-1])
     projectile_energy = 1 / 2 * mass * (final_velocity - initial_velocity) ** 2
-    capacitor_energy_used = 1 / 2 * capacitance * (initial_voltage - y1[:, 4][-1]) ** 2  # charge lost by capacitor
+    capacitor_energy_used = capacitor_energy - (1 / 2 * capacitance * y1[:, 4][-1] ** 2)  # charge lost by capacitor
     energy_efficiency = projectile_energy / capacitor_energy_used * 100  # percentage of energy transferred to projectile
     if final_velocity <= 0:
         energy_efficiency = 0
@@ -136,8 +145,11 @@ def calculations(vals):  # vals = [cap, esr, vol, w, h, l, d, lp, hp, mat, lc, d
 
     velocity_data = [[i] for i in list(y1[:, 1])]  # convert each item in list to list within list
     voltage_data = [[i] for i in list(y1[:, 4])]  # convert each item in list to list within list
+    time_data = [[0]]
+    for i in range(999):
+        time_data.append([interval * ((i + 1) / 1000)])
 
-    return [velocity_data, voltage_data, energy_efficiency, interval]
+    return [velocity_data, voltage_data, energy_efficiency, time_data]
 
 
 def main():
@@ -176,18 +188,29 @@ def main():
         param = [i for [i] in values]
         calc = calculations(param)
 
-        print(sheet.values().clear(spreadsheetId=spreadsheet_id, range='F3:F999999').execute())
         print(sheet.values().update(
             spreadsheetId=spreadsheet_id,
             range='D18:D19',
             valueInputOption="USER_ENTERED",
-            body={"values": [[calc[0][calc[3]][0]], [calc[2]]]}
+            body={"values": [[round(calc[0][-1][0], 4)], [round(calc[2], 4)]]}
         ).execute())
         print(sheet.values().update(
             spreadsheetId=spreadsheet_id,
-            range='F3:F' + str(calc[3] + 3),
+            range='F3:F1002',
             valueInputOption="USER_ENTERED",
-            body={"values": calc[0][0:(calc[3])]}
+            body={"values": calc[0]}
+        ).execute())
+        print(sheet.values().update(
+            spreadsheetId=spreadsheet_id,
+            range='G3:G1002',
+            valueInputOption="USER_ENTERED",
+            body={"values": calc[1]}
+        ).execute())
+        print(sheet.values().update(
+            spreadsheetId=spreadsheet_id,
+            range='H3:H1002',
+            valueInputOption="USER_ENTERED",
+            body={"values": calc[3]}
         ).execute())
 
     except HttpError as err:

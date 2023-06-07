@@ -72,7 +72,7 @@ def dydt(y, t):
     inductance1 = inductance_gradient * current_rate * velocity
     inductance2 = -1 / (inductance_leads + inductance_gradient * position)
 
-    if position < l:
+    if position < l and velocity > 0:
         current_rate_rate = inductance2 * (inductance1 + d_voltage + d_resistance + d_resistance_gradient + d_EMF)
     else:
         acceleration = 0
@@ -87,23 +87,30 @@ length = 3
 time = np.linspace(0, length, 100000)
 y0 = [0.0, initial_velocity, 0, initial_current_rate, initial_voltage]
 y1 = odeint(dydt, y0, time)
+interval = 1.2 * length * (closest_value(y1[:, 0], l) / len(y1[:, 0]))  # used for graphing, to set correct x-axis window
+time = np.linspace(0, interval, 1000)
+y1 = odeint(dydt, y0, time)
 
-interval = length * (closest_value(y1[:, 0], l) / len(y1[:, 0]))  # used for graphing, to set correct x-axis window
 final_velocity = (y1[:, 1][-1])
 projectile_energy = 1 / 2 * mass * (final_velocity - initial_velocity) ** 2
-capacitor_energy_used = 1 / 2 * capacitance * (initial_voltage - y1[:, 4][-1]) ** 2  # charge lost by capacitor
+capacitor_energy_used = capacitor_energy - (1 / 2 * capacitance * y1[:, 4][-1] ** 2)  # charge lost by capacitor
 energy_efficiency = projectile_energy / capacitor_energy_used * 100  # percentage of energy transferred to projectile
+total_energy_efficiency = projectile_energy / capacitor_energy
 if final_velocity <= 0:
     energy_efficiency = 0
+    projectile_energy = 0
+    total_energy_efficiency = 0
 print('final_velocity =', round(final_velocity, 4), 'm/s')
 print('energy_efficiency =', round(energy_efficiency, 4), "%")
+print('total_energy_efficiency =', round(total_energy_efficiency, 4), '%')
+print("projectile_energy =", projectile_energy, "joules")
 
 # plt.plot(time, y1[:, 0], 'b', label='position')
 plt.plot(time, y1[:, 1], 'r', label='velocity')
 # plt.plot(time, y1[:, 2], 'g', label='current')
 # plt.plot(time, y1[:, 3], 'o', label='current_rate')
 plt.plot(time, y1[:, 4], 'k', label='voltage')
-plt.xlim(0, interval + 0.2 * interval)
+plt.xlim(0, interval)
 plt.legend(loc='best')
 plt.xlabel('t')
 plt.show()
